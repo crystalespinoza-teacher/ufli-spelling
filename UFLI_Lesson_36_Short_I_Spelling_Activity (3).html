@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UFLI Lesson 36 - Short I Spelling Practice</title>
+<style>
+body{margin:0;padding:24px;background:#f2f4f6;font-family:Arial,sans-serif}
+#app{max-width:880px;margin:auto}
+.screen{background:#f8d94f;border-radius:18px;overflow:hidden;border:1px solid #ccc;box-shadow:0 4px 14px rgba(0,0,0,.08)}
+.top{background:#0f5f8f;color:#fff;padding:16px 20px;font-size:21px;font-weight:800}
+.instructions{padding:14px 18px;font-size:16px}
+.panel{display:grid;grid-template-columns:180px 1fr;margin:0 18px 18px;background:#fff;border-radius:15px;overflow:hidden}
+.buttons{background:#f7c82d;padding:17px;display:flex;flex-direction:column;gap:12px}
+.audio{display:flex;align-items:center;gap:10px;background:transparent;border:0;font-size:17px;font-weight:800;min-height:44px;cursor:pointer}
+.speaker{width:38px;height:38px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center}
+.message{background:#d9eff8;min-height:160px;display:flex;align-items:center;justify-content:center;padding:20px;font-size:21px;font-weight:800;text-align:center;color:#154b69}
+.entry{margin:0 18px 14px;background:#fff;padding:22px 18px;border-radius:8px}
+.type-zone{position:relative;min-height:90px;cursor:text}
+.boxes{display:flex;justify-content:center;gap:14px;min-height:90px;pointer-events:none}
+.box{min-width:76px;height:82px;padding:0 10px;border:3px solid #4a8fb7;border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:"Comic Sans MS","Chalkboard SE","Trebuchet MS",sans-serif;font-size:58px;color:#111;background:#fff}
+.type-input{position:absolute;inset:0;width:100%;height:100%;box-sizing:border-box;opacity:.01;border:0;background:transparent;color:transparent;caret-color:transparent;font-size:40px;z-index:5;cursor:text}
+.type-input:focus{outline:none}
+.hint{text-align:center;margin-top:10px;color:#555}
+.result{margin:0 18px 14px;padding:12px;background:#fff6bf;border-radius:10px;text-align:center;font-weight:700;min-height:48px}
+.correct{font-family:"Comic Sans MS","Chalkboard SE",sans-serif;font-size:38px;letter-spacing:4px}
+.controls{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0 18px 18px;flex-wrap:wrap}
+.nav,.check{min-height:45px;border-radius:999px;padding:0 20px;font-weight:800;border:1px solid #aaa;cursor:pointer}
+.nav{background:#fff}
+.check{background:#0f5f8f;color:#fff}
+.progress{font-weight:800;color:#154b69}
+@media(max-width:650px){
+  .panel{grid-template-columns:1fr}
+  .buttons{display:grid;grid-template-columns:repeat(3,1fr)}
+  .audio{flex-direction:column;justify-content:center}
+  .box{min-width:60px;height:70px;font-size:48px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="screen">
+<div class="top">UFLI Lesson 36: Words with Short I</div>
+<div class="instructions">Listen to the word, its spelling, and how it is used in a sentence. Type the word. Then select <b>Check</b>.</div>
+
+<div class="panel">
+  <div class="buttons">
+    <button class="audio" id="word"><span class="speaker">🔊</span>Word</button>
+    <button class="audio" id="spell"><span class="speaker">🔊</span>Spelling</button>
+    <button class="audio" id="sentence"><span class="speaker">🔊</span>Sentence</button>
+  </div>
+  <div class="message" id="msg">Press a speaker button to listen.</div>
+</div>
+
+<div class="entry">
+  <div class="type-zone" id="typeZone">
+    <div class="boxes" id="boxes"></div>
+    <input id="input" class="type-input" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Type the spelling word">
+  </div>
+  <div class="hint">Click the boxes, then type the word.</div>
+</div>
+
+<div class="result" id="result">Type the word, then press Check.</div>
+
+<div class="controls">
+  <button class="nav" id="prev">◀ Previous</button>
+  <span class="progress" id="progress">1 of 7</span>
+  <button class="check" id="check">✓ CHECK</button>
+  <button class="nav" id="next">Next ▶</button>
+</div>
+</div>
+</div>
+
+<script>
+const data=[
+ {w:'sit',chunks:['s','i','t'],letters:['s','i','t'],s:'I sit on the rug.'},
+ {w:'fin',chunks:['f','i','n'],letters:['f','i','n'],s:'The fish has a fin.'},
+ {w:'lip',chunks:['l','i','p'],letters:['l','i','p'],s:'My lip is pink.'},
+ {w:'win',chunks:['w','i','n'],letters:['w','i','n'],s:'We can win the game.'},
+ {w:'pig',chunks:['p','i','g'],letters:['p','i','g'],s:'The pig is in the pen.'},
+ {w:'kid',chunks:['k','i','d'],letters:['k','i','d'],s:'The kid can run.'},
+ {w:'dig',chunks:['d','i','g'],letters:['d','i','g'],s:'I can dig in the sand.'}
+];
+
+let n=0,typed='';
+const boxes=document.getElementById('boxes');
+const input=document.getElementById('input');
+const msg=document.getElementById('msg');
+const result=document.getElementById('result');
+const progress=document.getElementById('progress');
+const prev=document.getElementById('prev');
+
+function bestVoice(){
+ const v=speechSynthesis.getVoices();
+ return v.find(x=>/Google US English/i.test(x.name)) ||
+        v.find(x=>/Samantha/i.test(x.name)) ||
+        v.find(x=>x.lang==='en-US') || null;
+}
+function say(t,r){
+ return new Promise(done=>{
+   const u=new SpeechSynthesisUtterance(t);
+   u.lang='en-US'; u.rate=r; u.pitch=1; u.volume=1;
+   const v=bestVoice(); if(v) u.voice=v;
+   u.onend=done; u.onerror=done;
+   speechSynthesis.speak(u);
+ });
+}
+function draw(){
+ boxes.innerHTML='';
+ data[n].chunks.forEach((chunk,j)=>{
+   const b=document.createElement('div');
+   b.className='box';
+   b.textContent=typed[j]||'';
+   boxes.appendChild(b);
+ });
+}
+function reset(){
+ typed=''; input.value='';
+ msg.textContent='Press a speaker button to listen.';
+ result.textContent='Type the word, then press Check.';
+ progress.textContent=`${n+1} of ${data.length}`;
+ prev.disabled=n===0;
+ draw();
+ setTimeout(()=>input.focus(),50);
+}
+input.addEventListener('input',()=>{
+ typed=input.value.toLowerCase().replace(/[^a-z]/g,'').slice(0,data[n].w.length);
+ input.value=typed;
+ draw();
+});
+document.getElementById('typeZone').addEventListener('click',()=>input.focus());
+
+document.getElementById('word').onclick=async()=>{
+ msg.textContent='Listen to the word.';
+ speechSynthesis.cancel();
+ await say(data[n].w+'.',.78);
+ input.focus();
+};
+document.getElementById('spell').onclick=async()=>{
+ msg.textContent='Listen to each letter.';
+ speechSynthesis.cancel();
+ for(const x of data[n].letters){
+   await say(x,.70);
+   await new Promise(r=>setTimeout(r,150));
+ }
+ input.focus();
+};
+document.getElementById('sentence').onclick=async()=>{
+ msg.textContent='Listen to the sentence.';
+ speechSynthesis.cancel();
+ await say(data[n].s,.82);
+ input.focus();
+};
+
+document.getElementById('check').onclick=()=>{
+ const w=data[n].w;
+ result.innerHTML=typed===w
+   ? `✓ Correct! &nbsp; <span class="correct">${w}</span>`
+   : `Correct spelling: &nbsp; <span class="correct">${w}</span>`;
+ input.focus();
+};
+
+document.getElementById('next').onclick=()=>{n=(n+1)%data.length;reset()};
+prev.onclick=()=>{if(n>0){n--;reset()}};
+input.addEventListener('keydown',e=>{
+ if(e.key==='Enter') document.getElementById('check').click();
+});
+if('speechSynthesis' in window) speechSynthesis.getVoices();
+reset();
+</script>
+</body>
+</html>
